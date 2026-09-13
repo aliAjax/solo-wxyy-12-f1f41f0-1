@@ -448,15 +448,30 @@ function todoInTx(db, id) {
   return { settings, todo, survey, site };
 }
 
-function checkToken(todo, token) {
+// 请求标记只在「同一人 + 同一动作」内识别为重复；
+// 同一标记被其他角色或其他动作复用时，视为冲突请求并拒绝，不做状态流转
+function checkToken(todo, token, action, actorId) {
   const key = String(token || '').trim();
-  if (!key) return false;
-  return todo.usedTokens.includes(key);
+  if (!key) return { replay: false, stolen: false };
+  const record = (todo.usedTokens || []).find((entry) => entry && entry.token === key);
+  if (!record) return { replay: false, stolen: false };
+  if (record.action === action && record.actorId === actorId) return { replay: true, stolen: false };
+  return { replay: false, stolen: true, record };
 }
 
-function rememberToken(todo, token) {
+function rememberToken(todo, token, action, actorId) {
   const key = String(token || '').trim();
-  if (key && !todo.usedTokens.includes(key)) todo.usedTokens.push(key);
+  if (!key) return;
+  todo.usedTokens = todo.usedTokens || [];
+  if (!todo.usedTokens.some((entry) => entry.token === key)) {
+    todo.usedTokens.push({ token: key, action, actorId });
+  }
+}
+
+function rejectStolenToken(result, action) {
+  if (result.stolen) {
+    throw new HttpError(409, `该请求标记已用于「${result.record.action}」操作，禁止复用到其他角色或动作`);
+  }
 }
 
 app.post('/api/todos/:id/claim', async (req, res, next) => {
@@ -464,6 +479,8 @@ app.post('/api/todos/:id/claim', async (req, res, next) => {
     const actor = requireRole(req, 'surveyor');
     const result = await withTx(async (db) => {
       const { todo } = todoInTx(db, req.params.id);
+      const dup = checkToken(todo, req.body?.clientToken, 'claim', actor.id);
+      rejectStolenToken(dup, 'claim');
       if (!todo.open) throw new HttpError(409, '待办已销项，无需处理');
 
       // 幂等：同一人重复领取直接返回当前状态
@@ -482,6 +499,7 @@ app.post('/api/todos/:id/claim', async (req, res, next) => {
       todo.status = todo.escalated ? '已升级' : '处理中';
       todo.updatedAt = nowIso();
       todo.events.push(todoEvent('claimed', '领取处理', actor));
+      rememberToken(todo, req.body?.clientToken, 'claim', actor.id);
       await persist(db);
       return { todo };
     });
@@ -499,7 +517,9 @@ app.post('/api/todos/:id/submit-handling', async (req, res, next) => {
     const result = await withTx(async (db) => {
       const { todo, settings } = todoInTx(db, req.params.id);
 
-      if (checkToken(todo, req.body?.clientToken)) return { duplicate: true, todo };
+      const dup = checkToken(todo, req.body?.clientToken, 'submit', actor.id);
+      rejectStolenToken(dup, 'submit');
+      if (dup.replay) return { duplicate: true, todo };
       if (!todo.open) throw new HttpError(409, '待办已销项');
       if (todo.handlerId !== actor.id) {
         throw new HttpError(403, `越权操作：该待办由【${todo.handlerName || '他人'}】负责处理`);
@@ -516,7 +536,7 @@ app.post('/api/todos/:id/submit-handling', async (req, res, next) => {
       todo.deadline = addHours(ts, settings.slaHours.review);
       todo.updatedAt = ts;
       todo.events.push(todoEvent('submitted', '提交复查', actor, note));
-      rememberToken(todo, req.body?.clientToken);
+      rememberToken(todo, req.body?.clientToken, 'submit', actor.id);
       await persist(db);
       return { todo };
     });
@@ -534,7 +554,9 @@ app.post('/api/todos/:id/reject', async (req, res, next) => {
     const result = await withTx(async (db) => {
       const { todo, settings } = todoInTx(db, req.params.id);
 
-      if (checkToken(todo, req.body?.clientToken)) return { duplicate: true, todo };
+      const dup = checkToken(todo, req.body?.clientToken, 'reject', actor.id);
+      rejectStolenToken(dup, 'reject');
+      if (dup.replay) return { duplicate: true, todo };
       if (!todo.open) throw new HttpError(409, '待办已销项');
       if (todo.stage !== 'review') throw new HttpError(409, '仅待复查状态可以驳回');
       if (todo.handlerId === actor.id) throw new HttpError(403, '不能驳回自己提交的处理结果');
@@ -549,7 +571,7 @@ app.post('/api/todos/:id/reject', async (req, res, next) => {
       todo.updatedAt = ts;
       todo.events.push(todoEvent('rejected', '复查驳回', actor,
         `退回处理人【${todo.handlerName}】继续处理：${reason}`));
-      rememberToken(todo, req.body?.clientToken);
+      rememberToken(todo, req.body?.clientToken, 'reject', actor.id);
       await persist(db);
       return { todo };
     });
@@ -567,7 +589,9 @@ app.post('/api/todos/:id/close', async (req, res, next) => {
     const result = await withTx(async (db) => {
       const { todo, survey, site } = todoInTx(db, req.params.id);
 
-      if (checkToken(todo, req.body?.clientToken)) return { duplicate: true, todo };
+      const dup = checkToken(todo, req.body?.clientToken, 'close', actor.id);
+      rejectStolenToken(dup, 'close');
+      if (dup.replay) return { duplicate: true, todo };
       if (!todo.open) throw new HttpError(409, '待办已销项，请勿重复操作');
       if (todo.stage !== 'review') throw new HttpError(409, '处理人尚未提交复查');
       if (todo.handlerId === actor.id) {
@@ -601,7 +625,7 @@ app.post('/api/todos/:id/close', async (req, res, next) => {
         site.history = site.history || [];
         site.history.unshift(stamp('恢复开放', '关联待办全部销项', actor));
       }
-      rememberToken(todo, req.body?.clientToken);
+      rememberToken(todo, req.body?.clientToken, 'close', actor.id);
       await persist(db);
       return { todo };
     });

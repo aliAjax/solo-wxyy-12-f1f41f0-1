@@ -102,6 +102,14 @@ async function main() {
   // A 再领取 → 幂等
   r = await req('POST', `/api/todos/${todoId}/claim`, U.surveyorA, { clientToken: 'c-3' });
   ok('本人重复领取幂等', r.status === 200 && r.json.duplicate === true);
+  // 同一标记被另一人复用 → 拒绝，不能被识别成"重复成功"
+  r = await req('POST', `/api/todos/${todoId}/claim`, U.surveyorB, { clientToken: 'c-1' });
+  ok('他人复用A的领取标记 → 409 拒绝', r.status === 409 && /请求标记/.test(r.json.error));
+  // 同一人把领取标记复用到提交动作 → 拒绝
+  r = await req('POST', `/api/todos/${todoId}/submit-handling`, U.surveyorA, { note: '串用领取标记', clientToken: 'c-1' });
+  ok('同一人跨动作复用标记(领取→提交) → 409 拒绝', r.status === 409 && /请求标记/.test(r.json.error));
+  db = (await req('GET', '/api/db')).json;
+  ok('标记串用被拒后状态不变（仍处理中）', db.todos.find(t => t.id === todoId).status === '处理中');
 
   // 9. 未领取者不能提交；B 提交 → 403
   r = await req('POST', `/api/todos/${todoId}/submit-handling`, U.surveyorB, { note: '我处理了' });
@@ -124,6 +132,14 @@ async function main() {
   ok('巡测员驳回 → 403', r.status === 403);
   r = await req('POST', `/api/todos/${todoId}/close`, U.surveyorA, { note: '销项' });
   ok('巡测员销项 → 403', r.status === 403);
+  // 复查员把处理人的提交标记复用到驳回/销项 → 拒绝，状态不变
+  r = await req('POST', `/api/todos/${todoId}/reject`, U.reviewerA, { reason: '串用标记', clientToken: 's-1' });
+  ok('复查员复用提交标记驳回 → 409 拒绝', r.status === 409 && /请求标记/.test(r.json.error));
+  r = await req('POST', `/api/todos/${todoId}/close`, U.reviewerB, { note: '串用标记', clientToken: 's-1' });
+  ok('另一复查员复用提交标记销项 → 409 拒绝', r.status === 409 && /请求标记/.test(r.json.error));
+  db = (await req('GET', '/api/db')).json;
+  const stillReview = db.todos.find(t => t.id === todoId);
+  ok('标记串用被拒后仍为待复查、未销项', stillReview.status === '待复查' && stillReview.open === true);
 
   // 12. 复查员A 驳回
   r = await req('POST', `/api/todos/${todoId}/reject`, U.reviewerA, { reason: 'CO2仍偏高，复测', clientToken: 'j-1' });
