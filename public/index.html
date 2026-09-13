@@ -14,11 +14,27 @@
           <h1 id="title">业务系统</h1>
           <p class="lede" id="lede"></p>
         </div>
-        <button class="secondary" id="refreshBtn">刷新数据</button>
+        <div class="identity">
+          <label class="identity-pick">当前身份
+            <select id="userSelect"></select>
+          </label>
+          <button class="secondary" id="refreshBtn">刷新数据</button>
+        </div>
       </div>
       <nav class="tabs" id="tabs"></nav>
     </header>
     <main id="main"></main>
+  </div>
+  <div class="modal-mask" id="modalMask" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <h3 id="modalTitle"></h3>
+      <p class="meta" id="modalHint"></p>
+      <textarea id="modalText" rows="4"></textarea>
+      <div class="actions right">
+        <button class="ghost" id="modalCancel">取消</button>
+        <button id="modalConfirm">确认</button>
+      </div>
+    </div>
   </div>
   <div class="toast" id="toast"></div>
   <script src="/app.js"></script>

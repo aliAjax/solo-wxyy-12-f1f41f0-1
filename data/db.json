@@ -11,11 +11,16 @@
       "baselineTemp": 16.2,
       "baselineHumidity": 92,
       "baselineCo2": 680,
+      "baselineDrip": 10,
       "note": "游客步道上方，滴水频率稳定",
       "createdAt": "2026-06-14T08:00:00.000Z",
       "updatedAt": "2026-06-14T08:00:00.000Z",
       "history": [
-        { "at": "2026-06-14T08:00:00.000Z", "action": "创建", "note": "样点建档" }
+        {
+          "at": "2026-06-14T08:00:00.000Z",
+          "action": "创建",
+          "note": "样点建档"
+        }
       ]
     }
   ],
@@ -24,7 +29,7 @@
       "id": "survey-seed-1",
       "siteId": "site-seed-1",
       "surveyor": "沈宁",
-      "date": "2026-06-18",
+      "date": "2026-09-13",
       "temperature": 17.4,
       "humidity": 88,
       "co2": 920,
@@ -33,11 +38,84 @@
       "photoUrl": "",
       "status": "异常待复查",
       "reviewNote": "",
-      "createdAt": "2026-06-18T10:00:00.000Z",
-      "updatedAt": "2026-06-18T10:00:00.000Z",
+      "createdAt": "2026-09-13T01:00:00.000Z",
+      "updatedAt": "2026-09-13T01:00:00.000Z",
       "history": [
-        { "at": "2026-06-18T10:00:00.000Z", "action": "创建", "note": "CO2升高并有干扰痕迹" }
+        {
+          "at": "2026-06-18T10:00:00.000Z",
+          "action": "创建",
+          "note": "CO2升高并有干扰痕迹"
+        }
+      ],
+      "grade": "中",
+      "gradeReasons": [
+        {
+          "key": "temperature",
+          "label": "温度",
+          "unit": "℃",
+          "baseline": 16.2,
+          "measured": 17.4,
+          "delta": 1.2,
+          "level": "中"
+        },
+        {
+          "key": "co2",
+          "label": "CO2",
+          "unit": "ppm",
+          "baseline": 680,
+          "measured": 920,
+          "delta": 240,
+          "level": "中"
+        },
+        {
+          "key": "disturbance",
+          "label": "游客干扰痕迹",
+          "level": "中",
+          "detail": "栏杆外侧有触碰痕迹"
+        }
       ]
     }
-  ]
+  ],
+  "todos": [
+    {
+      "id": "todo-b113107e",
+      "surveyId": "survey-seed-1",
+      "siteId": "site-seed-1",
+      "siteLabel": "北麓三号洞 / 滴水帘区 / D-07",
+      "surveyor": "沈宁",
+      "grade": "中",
+      "status": "待处理",
+      "stage": "pending",
+      "open": true,
+      "handlerId": null,
+      "handlerName": null,
+      "handledAt": null,
+      "handlerNote": "",
+      "reviewerId": null,
+      "reviewerName": null,
+      "reviewedAt": null,
+      "reviewNote": "",
+      "rejection": null,
+      "createdAt": "2026-09-13T03:39:03.524Z",
+      "updatedAt": "2026-09-13T03:39:03.524Z",
+      "claimedAt": null,
+      "submittedAt": null,
+      "closedAt": null,
+      "deadline": "2026-09-15T03:39:03.524Z",
+      "escalated": false,
+      "escalationLevel": 0,
+      "usedTokens": [],
+      "events": [
+        {
+          "at": "2026-09-13T03:39:03.524Z",
+          "type": "created",
+          "action": "异常发现",
+          "actorId": "system",
+          "actorName": "系统",
+          "detail": "按样点基准自动分级为【中】；温度偏离基准1.2℃（中）；CO2偏离基准240ppm（中）；栏杆外侧有触碰痕迹"
+        }
+      ]
+    }
+  ],
+  "settings": {}
 }
